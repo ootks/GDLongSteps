@@ -4,7 +4,6 @@ using OffsetArrays
 
 LARGE_NUM = 50
 alphas_stored = OffsetArray(zeros(LARGE_NUM), -1)
-Ts_stored = zeros(LARGE_NUM)
 mus_stored = zeros(LARGE_NUM)
 
 function alpha(i)
@@ -20,7 +19,7 @@ function beta(i)
     return 1 + (1 + sqrt(2))^(i-1)
 end
 
-function z(k)
+function phi(k)
     return append!(zeros(2^k-1),sqrt(mu(k)-1), w(k))
 end
 
@@ -33,19 +32,6 @@ function w(k)
     return append!(res, 1)
 end
 
-function T(i)
-    if Ts_stored[i] != 0
-        return Ts_stored[i]
-    end
-    if i == 1
-        val = 0
-    else
-        val = 2 * sum(Vector{Float64}([alpha(l) for l=0:i-2])) + sum(Vector{Float64}([2 * (2^(i - 1 - l) - 1) * beta(l) for l=0:i-2]))
-    end
-    Ts_stored[i] = val
-    return val
-end
-
 function mu(i)
     if i == 0
         return 2
@@ -53,7 +39,7 @@ function mu(i)
     if mus_stored[i] != 0
         return mus_stored[i]
     end
-    val = T(i) + 2 * alpha(i - 1) + 2
+    val = muNew(i-1) + 2*(alpha(i-1) + beta(i) - 2)
     mus_stored[i] = val
     return val
 end
