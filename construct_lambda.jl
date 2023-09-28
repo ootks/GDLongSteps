@@ -1,10 +1,12 @@
 using LinearAlgebra
-#using JLD2
 using OffsetArrays
 
 LARGE_NUM = 50
 alphas_stored = OffsetArray(zeros(LARGE_NUM), -1)
 mus_stored = zeros(LARGE_NUM)
+
+# Most of the methods listed here construct numbers or vectors defined and named in the associated paper
+# "Accelerated Gradient Descent via Long Step Sizes". 
 
 function alpha(i)
     if alphas_stored[i] != 0
@@ -39,7 +41,7 @@ function mu(i)
     if mus_stored[i] != 0
         return mus_stored[i]
     end
-    val = muNew(i-1) + 2*(alpha(i-1) + beta(i) - 2)
+    val = mu(i-1) + 2*(alpha(i-1) + beta(i) - 2)
     mus_stored[i] = val
     return val
 end
@@ -49,6 +51,7 @@ function largestpow2(n)
     Int(log2(n&-n))
 end
 
+# Returns if n is a power of 2.
 function isPowerOf2(n)
     (n & (n-1)) == 0
 end
@@ -95,14 +98,6 @@ function pad(k,i,partialRow)
     append!(zeros(i-2^(l-1)), partialRow, zeros(n - (i-2^(l-1)) - length(partialRow)))
 end
 
-# function sumi(i)
-#     p = count_ones(i+1)
-#     z = trunc(Int, log2(i+1))
-#     l = largestpow2(i+1)
-#     0.5 * (1+sqrt(2))^(2*(p-z-2)) * beta(l + 2) * (mu(z+1)-1)
-#     end
-# println(maximum(abs.([isPowerOf2(i+1) ? 0 : (sum(ll1023[i:end,i]) - sumi(i)) for i = 1:511])))
-
 function lambdaPart(k,i)
     t = 2^(k+1)-1
     if !isPowerOf2(i+1) && !isPowerOf2(t-i)
@@ -139,7 +134,6 @@ function lambdaPart(k,i)
                        w(k)/sqrt(mu(k)-1)
                       )
     end
-    # Last remaining case: i = t - 2^l, for some l
     if i == t - 1
         return [0,0.5]
     end
@@ -186,7 +180,6 @@ function lambda(k)
 end
 
 function gvec(i,t)
-    # i is index from -1:t
     vec = zeros(t+2)
     if i != -1
         vec[i+2] = 1
@@ -195,8 +188,6 @@ function gvec(i,t)
 end
 
 function xvec(i, t, h)
-    # i is index from -1:t
-    # h is offset array
     vec = zeros(t+2)
     if i == -1
         return vec
@@ -239,6 +230,7 @@ function make_M(t,h,λ)
     return expression3
 end
 
+# Calculates the entries of M, entry by entry.
 function makeMentry(h, lambda, i, j)
     if i == j
         rowcolsum = sum(lambda[:,i])+sum(lambda[i,:])# + sum(lambda[-1:end,i+1])
@@ -260,4 +252,24 @@ function makeMentry(h, lambda, i, j)
       postsum2 =  h[j] * postsum2 / 2 
     end
     return -(lambda[i,j] + lambda[j,i])/2 - postsum1 + postsum2
+end
+
+# Example showing that makeMentry computes the values of M correctly.
+k = 5
+t = 2^(k+1)-1
+h5 = h(k)
+l5 = lambda(k)
+M1 = make_M(t, h5, l5)
+M2 = OffsetArray([makeMentry(h5, l5, i, j) for i=0:t, j=0:t],-1,-1)
+println(maximum(abs.(M1 - M2)) < 1e-10)
+
+# Examples showing that M(h, lambda) = phi phi^T/2
+for k = 2:13
+    hk = h(k)
+    lk = lambda(k)
+    tk = 2^(k+1)-1
+    Mk = [makeMentry(hk, lk, i, j) for i=0:tk, j=0:tk]
+    phik = phi(k)
+    rank1 = phik * transpose(phik)/2
+    println(maximum(abs.(Mk - rank1)) < 1e-10)
 end
